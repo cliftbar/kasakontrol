@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="PublishConfigData" autoUpload="Always" exclude=".svn;.cvs;.idea;.DS_Store;.git;.hg;*.hprof;*.pyc, *.sqlite" remoteFilesAllowedToDisappearOnAutoupload="false">
+    <serverData>
+      <paths name="pi@rpi3:22">
+        <serverdata>
+          <mappings>
+            <mapping deploy="/home/pi/remote-deploy/kasakontrol" local="$PROJECT_DIR$" web="/" />
+          </mappings>
+        </serverdata>
+      </paths>
+      <paths name="rpi">
+        <serverdata>
+          <mappings>
+            <mapping deploy="/tmp/kasakontrol/" local="$PROJECT_DIR$" web="/" />
+          </mappings>
+        </serverdata>
+      </paths>
+    </serverData>
+    <option name="myAutoUpload" value="ALWAYS" />
+  </component>
+</project>
