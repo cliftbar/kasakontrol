@@ -1,11 +1,19 @@
 from abc import abstractmethod
-from typing import Type
+from typing import Type, TypeVar
 
 from sqlalchemy import create_engine
 from sqlalchemy.exc import OperationalError, IntegrityError
-from sqlalchemy.orm import declarative_base, Session
+from sqlalchemy.future import select
+from sqlalchemy.orm import declarative_base, Session, Query
 
 Base = declarative_base()
+
+
+class GenericTypeVar(TypeVar, _root=True):
+    def __getitem__(self, item): pass
+# add more items to count as a "query" here
+GenericQuery = GenericTypeVar("GenericQuery", Query, select)
+M = GenericTypeVar("M")
 
 
 # https://stackoverflow.com/questions/49581907/when-inheriting-sqlalchemy-class-from-abstract-class-exception-thrown-metaclass
@@ -33,17 +41,14 @@ class SqliteStore:
 
     @staticmethod
     def ddl_statement(session: Session, statement: str):
-        # print(statement)
         try:
             session.execute(statement)
         except OperationalError as oe:
             msg = str(oe)
-            # print(msg)
             if "duplicate" not in msg:
                 raise oe
         except IntegrityError as ie:
             msg = str(ie)
-            # print(msg)
             if "UNIQUE constraint failed" not in msg:
                 raise ie
 
@@ -53,11 +58,8 @@ class SqliteStore:
     def store_rows(self, rows: list[Base]):
         with self.session.begin():
             self.session.add_all(rows)
-            self.session.commit()
 
-    def fetch_rows(self, stmt):
-        # with self.session.begin():
-        print(stmt)
-        res = self.session.execute(statement=stmt).all()[0]
+    def fetch_entities(self, stmt: GenericQuery[M], ) -> list[M]:
+        res: list[M] = self.session.execute(statement=stmt).scalars().all()
 
         return res
