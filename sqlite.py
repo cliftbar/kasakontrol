@@ -1,10 +1,11 @@
 from abc import abstractmethod
+from enum import Enum
 from typing import Type, TypeVar
 
 from sqlalchemy import create_engine
 from sqlalchemy.exc import OperationalError, IntegrityError
 from sqlalchemy.future import select
-from sqlalchemy.orm import declarative_base, Session, Query
+from sqlalchemy.orm import declarative_base, Session, Query, sessionmaker, scoped_session
 
 Base = declarative_base()
 
@@ -27,9 +28,15 @@ class BaseWithMigrations(Base):
 
 
 class SqliteStore:
-    def __init__(self, db_filename: str, models: list[Type[BaseWithMigrations]]):
+    class ParallelizationMode(Enum):
+        main = "main"
+        threaded = "threaded"
+
+    def __init__(self, db_filename: str, models: list[Type[BaseWithMigrations]], ):
         self.engine = create_engine(f"sqlite:///{db_filename}.sqlite", echo=False, future=True)
         Base.metadata.create_all(self.engine)
+
+        # self.session_factory = sessionmaker(bind=self.engine)
 
         self.session: Session = Session(self.engine)
         with self.session.begin() as tx:
@@ -56,8 +63,10 @@ class SqliteStore:
         return self.store_rows([row])
 
     def store_rows(self, rows: list[Base]):
-        with self.session.begin():
-            self.session.add_all(rows)
+        # session = scoped_session(self.session_factory) if new_session else self.session
+        session: Session = self.session
+        with session.begin():
+            session.add_all(rows)
 
     def fetch_entities(self, stmt: GenericQuery[M], ) -> list[M]:
         res: list[M] = self.session.execute(statement=stmt).scalars().all()

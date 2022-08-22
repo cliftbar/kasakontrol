@@ -59,7 +59,7 @@ def init_device_suite() -> dict[Device, Any]:
     light_prox.update_sensor()
     pms5003.read()
     gas.read_all()
-    scd4x.start_low_periodic_measurement()
+    # scd4x.start_low_periodic_measurement()
     disp.disp.reset()
     sleep(1)
 
