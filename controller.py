@@ -180,7 +180,9 @@ def data_control_loop(devices: dict[Device, Any] = None):
 
     scd41_temp_offset_F: float = (scd4x.temperature_offset * 9 / 5) + 32
     scd4x.start_low_periodic_measurement()
-    sleep(1)
+    while not scd4x.data_ready:
+        print("waiting on scd4x to be ready")
+        sleep(1)
 
     # init datastore
     datastore: SqliteStore = SqliteStore("sensors", [ControllerCollect])
