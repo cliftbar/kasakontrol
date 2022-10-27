@@ -23,11 +23,12 @@ class Thermostat:
         COOLDOWN = "COOLDOWN"
         NO_ACTION = "NO_ACTION"
 
-    def __init__(self, tstat_mode: TstatMode = TstatMode.AUTO, setpoint_F: float = 70.0, cooldown_duration_s: int = 300):
+    def __init__(self, tstat_mode: TstatMode = TstatMode.AUTO, setpoint_F: float = 70.0, co2_threshold_ppm: float = 600, cooldown_duration_s: int = 300):
         self.tstat_mode: Thermostat.TstatMode = tstat_mode
 
-        self.heat_setpoint = setpoint_F
-        self.cool_setpoint = setpoint_F
+        self.heat_setpoint: float = setpoint_F
+        self.cool_setpoint: float = setpoint_F
+        self.co2_threshold_ppm: float = co2_threshold_ppm
 
         self.last_command_ts: datetime = datetime.min
         self.last_command_ts = self.last_command_ts.replace(tzinfo=pytz.UTC)
@@ -50,9 +51,9 @@ class Thermostat:
     def is_on_cooldown(self) -> bool:
         return self.control_loop_ts - self.last_command_ts < self.cooldown_duration
 
-    def generate_command(self, current_temp_F: float) -> State:
+    def generate_command(self, current_temp_F: float, current_co2_ppm: float) -> State:
         new_command: State = State.OFF
-        if self.cool_setpoint < current_temp_F:
+        if self.cool_setpoint < current_temp_F or self.co2_threshold_ppm < current_co2_ppm:
             new_command = State.ON
         return new_command
 
@@ -75,7 +76,7 @@ class Thermostat:
 
         return Thermostat.TstatMode.OFF
 
-    def do_control(self, current_temp_F: float) -> Tuple[Result, State]:
+    def do_control(self, current_temp_F: float, current_co2_ppm: float) -> Tuple[Result, State]:
         self.control_loop_ts: datetime = datetime.now(pytz.UTC)
 
         self.tstat_mode = self.get_scheduled_mode(self.control_loop_ts)
@@ -88,7 +89,7 @@ class Thermostat:
         if self.is_on_cooldown():
             return Thermostat.Result.COOLDOWN, self.previous_command
 
-        new_command: State = self.generate_command(current_temp_F)
+        new_command: State = self.generate_command(current_temp_F, current_co2_ppm)
 
         if not self.needs_command(new_command):
             return Thermostat.Result.NO_CHANGE, new_command

@@ -212,10 +212,6 @@ def data_control_loop(devices: dict[Device, Any] = None):
         instant: int = light_prox.get_lux()
         humidity_pct: float = weather_bme280.get_humidity()
 
-        tstat_run: Thermostat.Result
-        fan_state: State
-        tstat_run, fan_state = tstat.do_control(corrected_temp)
-
         co2_ppm: float = None
         scd41_temp_F: float = None
         scd41_humidity_pct: float = None
@@ -224,6 +220,10 @@ def data_control_loop(devices: dict[Device, Any] = None):
             co2_ppm = scd4x.CO2
             scd41_temp_F = (scd4x.temperature * 9 / 5) + 32
             scd41_humidity_pct = scd4x.relative_humidity
+
+        tstat_run: Thermostat.Result
+        fan_state: State
+        tstat_run, fan_state = tstat.do_control(corrected_temp, co2_ppm)
 
         print(f"{ts_now.isoformat()}\t{temp:.2f}\t{corrected_temp:.2f}\t{temp_read_offset:.2f}\t{avg_cpu_temp_F:.2f}\t{gas_readings.reducing:.2f}\t{gas_readings.oxidising:.2f}\t{gas_readings.nh3:.2f}\t{instant:.2f}\t{humidity_pct:.2f}\t{fan_state.value}\t{tstat.cool_setpoint:.2f}\t{tstat_run.value}\t{pm_readings.pm_ug_per_m3(1):.2f}\t{pm_readings.pm_ug_per_m3(2.5):.2f}\t{pm_readings.pm_ug_per_m3(10):.2f}\t{co2_ppm:.2f}\t{scd41_temp_F:.2f}\t{scd41_temp_offset_F:.2f}\t{scd41_humidity_pct:.2f}")
 
