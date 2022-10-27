@@ -23,7 +23,8 @@ class Thermostat:
         COOLDOWN = "COOLDOWN"
         NO_ACTION = "NO_ACTION"
 
-    def __init__(self, tstat_mode: TstatMode = TstatMode.AUTO, setpoint_F: float = 70.0, co2_threshold_ppm: float = 600, cooldown_duration_s: int = 300):
+    def __init__(self, tstat_mode: TstatMode = TstatMode.AUTO, setpoint_F: float = 70.0, co2_threshold_ppm: float = 800,
+                 cooldown_duration_s: int = 300):
         self.tstat_mode: Thermostat.TstatMode = tstat_mode
 
         self.heat_setpoint: float = setpoint_F
