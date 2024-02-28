@@ -14,6 +14,8 @@ app: Rocketry = Rocketry(config={
 })
 
 ds: SqliteStore = SqliteStore("timeseries", [Timeseries, TimeseriesID, DatetimeMask])
+# build a hello world method here
+
 
 
 # https://forecast.weather.gov/MapClick.php?lat=45.5234&lon=-122.6762&lg=ep&FcstType=graphical
@@ -35,6 +37,8 @@ def collect_forecasts(data_ts: datetime) -> list[Timeseries]:
                                                    row_metadata=p)
         ret.append(row)
 
+    # save ret to a new list
+    
     return ret
 
 

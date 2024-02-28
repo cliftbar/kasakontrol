@@ -41,6 +41,7 @@ class Device(Enum):
     THERMOSTAT = "THERMOSTAT"
     DISPLAY = "DISPLAY"
 
+temp_read_offset: float = -7  # sensor correction
 
 def init_device_suite() -> dict[Device, Any]:
     bus = SMBus(1)
@@ -51,7 +52,7 @@ def init_device_suite() -> dict[Device, Any]:
     pms5003: PMS5003 = PMS5003()
     scd4x: SCD4X = adafruit_scd4x.SCD4X(i2c)
     disp: Display = Display()
-    tstat: Thermostat = Thermostat()
+    tstat: Thermostat = Thermostat(setpoint_F = 67.0, cooldown_duration_s = 600)
 
     # Do a run to throwaway readings to get started
     weather_bme280.get_temperature()
@@ -77,8 +78,6 @@ def init_device_suite() -> dict[Device, Any]:
 def data_collect(datastore: SqliteStore, devices: dict[Device, Any] = None):
     ts_now = datetime.now(tz=pytz.UTC)
 
-    temp_read_offset: float = 6  # sensor correction
-
     if devices is None:
         devices = init_device_suite()
 
@@ -96,7 +95,7 @@ def data_collect(datastore: SqliteStore, devices: dict[Device, Any] = None):
 
     temp_C: float = weather_bme280.get_temperature()
     temp: float = (temp_C * 9 / 5) + 32
-    corrected_temp = temp - temp_read_offset
+    corrected_temp = temp + temp_read_offset
 
     instant: int = light_prox.get_lux()
     humidity_pct: float = weather_bme280.get_humidity()
@@ -140,10 +139,9 @@ def do_control(datastore: SqliteStore, devices: dict[Device, Any] = None):
     weather_bme280: BME280 = devices[Device.WEATHER]
     tstat: Thermostat = devices[Device.THERMOSTAT]
 
-    temp_read_offset: float = 6  # sensor correction
     temp_C: float = weather_bme280.get_temperature()
     temp: float = (temp_C * 9 / 5) + 32
-    corrected_temp = temp - temp_read_offset
+    corrected_temp = temp + temp_read_offset
 
     tstat_run: Thermostat.Result
     fan_state: State
@@ -165,8 +163,6 @@ def do_control(datastore: SqliteStore, devices: dict[Device, Any] = None):
 
 
 def data_control_loop(devices: dict[Device, Any] = None):
-    temp_read_offset: float = 6  # sensor correction
-
     if devices is None:
         devices = init_device_suite()
 
@@ -201,7 +197,7 @@ def data_control_loop(devices: dict[Device, Any] = None):
 
         temp_C: float = weather_bme280.get_temperature()
         temp: float = (temp_C * 9 / 5) + 32
-        corrected_temp = temp - temp_read_offset
+        corrected_temp = temp + temp_read_offset
 
         # cpu compensated
         cpu_temp: float = get_cpu_temperature()
