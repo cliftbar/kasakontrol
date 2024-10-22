@@ -41,7 +41,7 @@ class Device(Enum):
     THERMOSTAT = "THERMOSTAT"
     DISPLAY = "DISPLAY"
 
-temp_read_offset: float = -7  # sensor correction
+temp_read_offset: float = -5.5  # sensor correction
 
 def init_device_suite() -> dict[Device, Any]:
     bus = SMBus(1)
@@ -52,7 +52,7 @@ def init_device_suite() -> dict[Device, Any]:
     pms5003: PMS5003 = PMS5003()
     scd4x: SCD4X = adafruit_scd4x.SCD4X(i2c)
     disp: Display = Display()
-    tstat: Thermostat = Thermostat(setpoint_F = 67.0, cooldown_duration_s = 600)
+    tstat: Thermostat = Thermostat(setpoint_F = 72.0, cooldown_duration_s = 600)
 
     # Do a run to throwaway readings to get started
     weather_bme280.get_temperature()
@@ -189,55 +189,58 @@ def data_control_loop(devices: dict[Device, Any] = None):
     cpu_temps: list[float] = [get_cpu_temperature()] * 5
     sleep_time: int = 60
     while True:
-        # Read all sensors
-        ts_now = datetime.now(tz=pytz.UTC)
-        pm_readings: PMS5003Data = pms5003.read()
-        weather_bme280.update_sensor()
-        gas_readings = bulk_gas.read_all()
+        try:
+            # Read all sensors
+            ts_now = datetime.now(tz=pytz.UTC)
+            pm_readings: PMS5003Data = pms5003.read()
+            weather_bme280.update_sensor()
+            gas_readings = bulk_gas.read_all()
 
-        temp_C: float = weather_bme280.get_temperature()
-        temp: float = (temp_C * 9 / 5) + 32
-        corrected_temp = temp + temp_read_offset
+            temp_C: float = weather_bme280.get_temperature()
+            temp: float = (temp_C * 9 / 5) + 32
+            corrected_temp = temp + temp_read_offset
 
-        # cpu compensated
-        cpu_temp: float = get_cpu_temperature()
-        cpu_temps = cpu_temps[1:] + [cpu_temp]
-        avg_cpu_temp: float = sum(cpu_temps) / float(len(cpu_temps))
-        avg_cpu_temp_F: float = (avg_cpu_temp * 9 / 5) + 32
+            # cpu compensated
+            cpu_temp: float = get_cpu_temperature()
+            cpu_temps = cpu_temps[1:] + [cpu_temp]
+            avg_cpu_temp: float = sum(cpu_temps) / float(len(cpu_temps))
+            avg_cpu_temp_F: float = (avg_cpu_temp * 9 / 5) + 32
 
-        instant: int = light_prox.get_lux()
-        humidity_pct: float = weather_bme280.get_humidity()
+            instant: int = light_prox.get_lux()
+            humidity_pct: float = weather_bme280.get_humidity()
 
-        co2_ppm: float = None
-        scd41_temp_F: float = None
-        scd41_humidity_pct: float = None
-        if scd4x.data_ready:
-            # print("SCD DATA")
-            co2_ppm = scd4x.CO2
-            scd41_temp_F = (scd4x.temperature * 9 / 5) + 32
-            scd41_humidity_pct = scd4x.relative_humidity
+            co2_ppm: float = None
+            scd41_temp_F: float = None
+            scd41_humidity_pct: float = None
+            if scd4x.data_ready:
+                # print("SCD DATA")
+                co2_ppm = scd4x.CO2
+                scd41_temp_F = (scd4x.temperature * 9 / 5) + 32
+                scd41_humidity_pct = scd4x.relative_humidity
 
-        tstat_run: Thermostat.Result
-        fan_state: State
-        tstat_run, fan_state = tstat.do_control(corrected_temp, co2_ppm)
+            tstat_run: Thermostat.Result
+            fan_state: State
+            tstat_run, fan_state = tstat.do_control(corrected_temp, co2_ppm)
 
-        print(f"{ts_now.isoformat()}\t{temp:.2f}\t{corrected_temp:.2f}\t{temp_read_offset:.2f}\t{avg_cpu_temp_F:.2f}\t{gas_readings.reducing:.2f}\t{gas_readings.oxidising:.2f}\t{gas_readings.nh3:.2f}\t{instant:.2f}\t{humidity_pct:.2f}\t{fan_state.value}\t{tstat.cool_setpoint:.2f}\t{tstat_run.value}\t{pm_readings.pm_ug_per_m3(1):.2f}\t{pm_readings.pm_ug_per_m3(2.5):.2f}\t{pm_readings.pm_ug_per_m3(10):.2f}\t{co2_ppm:.2f}\t{scd41_temp_F:.2f}\t{scd41_temp_offset_F:.2f}\t{scd41_humidity_pct:.2f}")
+            print(f"{ts_now.isoformat()}\t{temp:.2f}\t{corrected_temp:.2f}\t{temp_read_offset:.2f}\t{avg_cpu_temp_F:.2f}\t{gas_readings.reducing:.2f}\t{gas_readings.oxidising:.2f}\t{gas_readings.nh3:.2f}\t{instant:.2f}\t{humidity_pct:.2f}\t{fan_state.value}\t{tstat.cool_setpoint:.2f}\t{tstat_run.value}\t{pm_readings.pm_ug_per_m3(1):.2f}\t{pm_readings.pm_ug_per_m3(2.5):.2f}\t{pm_readings.pm_ug_per_m3(10):.2f}\t{co2_ppm:.2f}\t{scd41_temp_F:.2f}\t{scd41_temp_offset_F:.2f}\t{scd41_humidity_pct:.2f}")
 
-        message = f"temp: {corrected_temp:.1f}F"
-        disp.write_text(message)
+            message = f"temp: {corrected_temp:.1f}F"
+            disp.write_text(message)
 
-        data_collection: ControllerCollect = ControllerCollect(
-            ts=ts_now, epoch_ts=int(ts_now.timestamp()),
-            temp_F=temp, corrected_temp_F=corrected_temp, temp_offset_F=temp_read_offset, avg_cpu_temp_F=avg_cpu_temp_F,
-            reducing_ohm=gas_readings.reducing, oxidizing_ohms=gas_readings.oxidising, ammonia_ohms=gas_readings.nh3,
-            lux=instant,
-            humidity_pct=humidity_pct,
-            fan_state=fan_state.value, tstat_action=tstat_run.value, setpoint_F=tstat.cool_setpoint,
-            pm1p0_ug_per_m3=pm_readings.pm_ug_per_m3(1), pm2p5_ug_per_m3=pm_readings.pm_ug_per_m3(2.5), pm10_ug_per_m3=pm_readings.pm_ug_per_m3(10),
-            co2_ppm=co2_ppm, scd41_temp_F=scd41_temp_F, scd41_temp_offset_F=scd41_temp_offset_F, scd41_humidity_pct=scd41_humidity_pct
-        )
-        datastore.store_row(data_collection)
-        sleep(sleep_time)
+            data_collection: ControllerCollect = ControllerCollect(
+                ts=ts_now, epoch_ts=int(ts_now.timestamp()),
+                temp_F=temp, corrected_temp_F=corrected_temp, temp_offset_F=temp_read_offset, avg_cpu_temp_F=avg_cpu_temp_F,
+                reducing_ohm=gas_readings.reducing, oxidizing_ohms=gas_readings.oxidising, ammonia_ohms=gas_readings.nh3,
+                lux=instant,
+                humidity_pct=humidity_pct,
+                fan_state=fan_state.value, tstat_action=tstat_run.value, setpoint_F=tstat.cool_setpoint,
+                pm1p0_ug_per_m3=pm_readings.pm_ug_per_m3(1), pm2p5_ug_per_m3=pm_readings.pm_ug_per_m3(2.5), pm10_ug_per_m3=pm_readings.pm_ug_per_m3(10),
+                co2_ppm=co2_ppm, scd41_temp_F=scd41_temp_F, scd41_temp_offset_F=scd41_temp_offset_F, scd41_humidity_pct=scd41_humidity_pct
+            )
+            datastore.store_row(data_collection)
+            sleep(sleep_time)
+        except Exception as e:
+            print(f"ERROR Control Loop issue, skipping: {e}")
 
 
 class ControllerCollect(BaseWithMigrations):
